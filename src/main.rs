@@ -3,7 +3,8 @@
 
 use defmt_rtt as _;
 
-extern crate stm32g0xx_hal as hal;
+extern crate stm32c0xx_hal as hal;
+// extern crate stm32g0xx_hal as hal;
 
 #[cfg(feature = "probe")]
 extern crate panic_probe;
@@ -28,10 +29,10 @@ use server::*;
 use store::*;
 
 pub type Qei = hal::timer::qei::Qei<TIM1, (GpioB2, GpioB3)>;
-pub type I2cDev = hal::i2c::I2c<I2C1, I2cSda, I2cClk>;
-pub type SpiDev = hal::spi::Spi<SPI1, (SpiClk, SpiMiso, SpiMosi)>;
+pub type I2cDev = hal::i2c::I2c<I2C, I2cSda, I2cClk>;
+pub type SpiDev = hal::spi::Spi<SPI, (SpiClk, SpiMiso, SpiMosi)>;
 
-#[rtic::app(device = stm32, peripherals = true, dispatchers = [CEC, RTC_TAMP])]
+#[rtic::app(device = stm32, peripherals = true, dispatchers = [USART1, USART2])]
 mod klaptik_fx {
     use super::*;
 
@@ -50,7 +51,7 @@ mod klaptik_fx {
 
     #[init]
     fn init(ctx: init::Context) -> (Shared, Local, init::Monotonics) {
-        let mut rcc = ctx.device.RCC.freeze(hal::rcc::Config::pll());
+        let mut rcc = ctx.device.RCC.freeze(hal::rcc::Config::hsi(hal::rcc::Prescaler::NotDivided));
         let mut exti = ctx.device.EXTI;
 
         let pins = Pins::new(
@@ -70,7 +71,7 @@ mod klaptik_fx {
         lcd_backlight.enable();
         lcd_backlight.set_duty(0);
 
-        let spi = ctx.device.SPI1.spi(
+        let spi = ctx.device.SPI.spi(
             (pins.spi_clk, pins.spi_miso, pins.spi_mosi),
             spi::MODE_0,
             16.MHz(),
@@ -82,7 +83,7 @@ mod klaptik_fx {
         i2c_cfg.slave_address_2(0x2a, i2c::SlaveAddressMask::MaskOneBit);
         let mut i2c = ctx
             .device
-            .I2C1
+            .I2C
             .i2c(pins.i2c_sda, pins.i2c_clk, i2c_cfg, &mut rcc);
         i2c.listen(i2c::Event::AddressMatch);
 
@@ -126,7 +127,7 @@ mod klaptik_fx {
         gpio_event::spawn(Event::GPIO2).ok();
     }
 
-    #[task(priority = 3, binds = I2C1, local = [server], shared = [display, controls, store])]
+    #[task(priority = 3, binds = I2C, local = [server], shared = [display, controls, store])]
     fn i2c_rx(ctx: i2c_rx::Context) {
         let i2c_rx::SharedResources {
             mut display,

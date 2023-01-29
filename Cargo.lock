@@ -327,6 +327,7 @@ dependencies = [
  "panic-probe",
  "serde",
  "shared-bus-rtic",
+ "stm32c0xx-hal",
  "stm32g0xx-hal",
  "uluru",
 ]
@@ -586,6 +587,29 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stm32c0"
+version = "0.15.1"
+dependencies = [
+ "cortex-m 0.7.7",
+ "cortex-m-rt",
+ "critical-section",
+ "vcell",
+]
+
+[[package]]
+name = "stm32c0xx-hal"
+version = "0.0.0"
+dependencies = [
+ "bare-metal 1.0.0",
+ "cortex-m 0.7.7",
+ "embedded-hal",
+ "fugit",
+ "nb 1.0.0",
+ "stm32c0",
+ "void",
+]
 
 [[package]]
 name = "stm32g0"
