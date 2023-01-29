@@ -192,7 +192,7 @@ mod klaptik_fx {
         });
     }
 
-    #[task(capacity = 128, shared = [display, store])]
+    #[task(capacity = 64, shared = [display, store])]
     fn render(ctx: render::Context, req: RenderRequest) {
         let render::SharedResources {
             mut display,

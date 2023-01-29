@@ -2,7 +2,7 @@ pub const I2C_ADDRESS: u16 = 0x2a;
 pub const FX_ADDRESS: u16 = I2C_ADDRESS;
 pub const RENDER_ADDRESS: u16 = I2C_ADDRESS | 1;
 
-pub const SPRITE_CACHE_SIZE: usize = 128;
+pub const SPRITE_CACHE_SIZE: usize = 64;
 
 pub const FLASH_MAX_ADDRESS: usize = 0x1ffff;
 pub const FLASH_ADDR_BYTES: usize = 3;
