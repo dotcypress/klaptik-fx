@@ -8,14 +8,13 @@ use uluru::LRUCache;
 
 pub type StoreAdapterError = kvs::adapters::spi::Error<SharedBus<SpiDev>, EepromCS>;
 pub type FlashStoreError = kvs::Error<StoreAdapterError>;
+pub type StoreResul<T> = Result<T, FlashStoreError>;
 
 pub type FlashStore = KVStore<
     PagedAdapter<SpiStoreAdapter<SharedBus<SpiDev>, EepromCS, FLASH_ADDR_BYTES>, FLASH_PAGE_SIZE>,
     KVS_BUCKETS,
     KVS_SLOTS,
 >;
-
-pub type StoreResul<T> = Result<T, FlashStoreError>;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Copy)]
 pub struct SpriteInfo {
