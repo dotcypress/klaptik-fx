@@ -7,6 +7,7 @@ use shared_bus_rtic::SharedBus;
 
 pub type DisplayDriver = ST7567<SharedBus<SpiDev>, LcdReset, LcdCS, LcdDC>;
 pub type Backlight = PwmPin<TIM14, Channel1>;
+
 pub struct DisplayController {
     backlight_pwm: Backlight,
     canvas: DisplayDriver,
