@@ -305,8 +305,9 @@ dependencies = [
 
 [[package]]
 name = "klaptik"
-version = "0.1.0"
-source = "git+https://github.com/dotcypress/klaptik#7a5a1cefafb47f2ff7f28c9cbc4d558f00aae7b0"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb5e8efb5b4069fd6770c34b6892cffa81ce38d7e1d2929e4cffd2b886b0a909"
 dependencies = [
  "embedded-hal",
  "paste",
