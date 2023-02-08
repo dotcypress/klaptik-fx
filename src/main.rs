@@ -21,7 +21,7 @@ mod store;
 use config::*;
 use controls::*;
 use display::*;
-use hal::{exti::*, gpio::*, i2c, prelude::*, spi, stm32, stm32::*, timer::*};
+use hal::{exti::*, gpio::*, i2c, prelude::*, rcc, spi, stm32, stm32::*, timer::*};
 use klaptik::{drivers::fx::FxCommand, *};
 use pins::*;
 use server::*;
@@ -31,7 +31,7 @@ pub type Qei = hal::timer::qei::Qei<TIM1, (GpioB2, GpioB3)>;
 pub type I2cDev = hal::i2c::I2c<I2C, I2cSda, I2cClk>;
 pub type SpiDev = hal::spi::Spi<SPI, (SpiClk, SpiMiso, SpiMosi)>;
 
-#[rtic::app(device = stm32, peripherals = true, dispatchers = [USART1, USART2])]
+#[rtic::app(device = stm32, peripherals = true, dispatchers = [DMA1_CHANNEL1, DMA1_CHANNEL2_3])]
 mod klaptik_fx {
     use super::*;
 
@@ -50,7 +50,10 @@ mod klaptik_fx {
 
     #[init]
     fn init(ctx: init::Context) -> (Shared, Local, init::Monotonics) {
-        let mut rcc = ctx.device.RCC.freeze(hal::rcc::Config::hsi(hal::rcc::Prescaler::NotDivided));
+        let mut rcc = ctx
+            .device
+            .RCC
+            .freeze(rcc::Config::hsi(rcc::Prescaler::NotDivided));
         let mut exti = ctx.device.EXTI;
 
         let pins = Pins::new(
@@ -102,7 +105,7 @@ mod klaptik_fx {
             &mut rcc,
         ));
 
-        defmt::info!("init complated");
+        defmt::info!("init done");
         (
             Shared {
                 controls,
@@ -115,18 +118,31 @@ mod klaptik_fx {
         )
     }
 
-    #[task(binds = EXTI0_1)]
+    #[task(priority = 1, binds = EXTI0_1)]
     fn gpio_a_edge(_: gpio_a_edge::Context) {
-        gpio_event::spawn(Event::GPIO0).ok();
-        gpio_event::spawn(Event::GPIO1).ok();
+        gpio_event::spawn(Event::GPIO0).unwrap();
+        gpio_event::spawn(Event::GPIO1).unwrap();
     }
 
-    #[task(binds = EXTI2_3)]
+    #[task(priority = 1, binds = EXTI2_3)]
     fn gpio_b_edge(_: gpio_b_edge::Context) {
-        gpio_event::spawn(Event::GPIO2).ok();
+        gpio_event::spawn(Event::GPIO2).unwrap();
     }
 
-    #[task(priority = 3, binds = I2C, local = [server], shared = [display, controls, store])]
+    #[task(priority = 2, shared = [exti, controls])]
+    fn gpio_event(ctx: gpio_event::Context, ev: Event) {
+        (ctx.shared.exti, ctx.shared.controls).lock(|exti, control| {
+            for edge in [SignalEdge::Falling, SignalEdge::Rising] {
+                if exti.is_pending(ev, edge) {
+                    control.record_edge(ev, edge);
+                }
+            }
+
+            exti.unpend(ev);
+        });
+    }
+
+    #[task(priority = 2, binds = I2C, local = [server], shared = [display, controls, store])]
     fn i2c_rx(ctx: i2c_rx::Context) {
         let i2c_rx::SharedResources {
             mut display,
@@ -134,7 +150,6 @@ mod klaptik_fx {
             mut store,
         } = ctx.shared;
         let server = ctx.local.server;
-
         loop {
             match server.poll() {
                 Ok(None) => break,
@@ -179,19 +194,7 @@ mod klaptik_fx {
         }
     }
 
-    #[task(priority = 2, shared = [exti, controls])]
-    fn gpio_event(ctx: gpio_event::Context, ev: Event) {
-        (ctx.shared.exti, ctx.shared.controls).lock(|exti, control| {
-            for edge in [SignalEdge::Falling, SignalEdge::Rising] {
-                if exti.is_pending(ev, edge) {
-                    control.record_edge(ev, edge);
-                }
-            }
-            exti.unpend(ev);
-        });
-    }
-
-    #[task(capacity = 64, shared = [display, store])]
+    #[task(priority=1,capacity = 16, shared = [display, store])]
     fn render(ctx: render::Context, req: RenderRequest) {
         let render::SharedResources {
             mut display,

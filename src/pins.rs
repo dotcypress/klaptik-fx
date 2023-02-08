@@ -10,8 +10,8 @@ pub type SwdIo = PA13<DefaultMode>;
 pub type SwdClk = PA14<DefaultMode>;
 
 // Qwiic I2C
-pub type I2cClk = PB8<Output<OpenDrain>>;
-pub type I2cSda = PB9<Output<OpenDrain>>;
+pub type I2cClk = PB7<Output<OpenDrain>>;
+pub type I2cSda = PC14<Output<OpenDrain>>;
 
 // SPI
 pub type SpiClk = PA5<DefaultMode>;
@@ -78,11 +78,11 @@ impl Pins {
 
             // Qwiic I2C
             i2c_clk: port_b
-                .pb8
+                .pb7
                 .set_speed(Speed::High)
                 .into_open_drain_output_in_state(PinState::High),
-            i2c_sda: port_b
-                .pb9
+            i2c_sda: port_c
+                .pc14
                 .set_speed(Speed::High)
                 .into_open_drain_output_in_state(PinState::High),
 

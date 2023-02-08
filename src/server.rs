@@ -79,6 +79,7 @@ impl I2CServer {
                     FX_ADDRESS => {
                         self.i2c.slave_sbc(false);
                         self.i2c.slave_read(&mut self.payload[..packet_len])?;
+                        defmt::info!("--: {} {}", self.payload[0], self.payload[1]);
                         let req = match self.mode {
                             Mode::Command => {
                                 let arg = self.payload[1];
