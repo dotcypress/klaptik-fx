@@ -11,6 +11,7 @@ pub enum Request {
     CreateSprite(SpriteId, SpriteInfo),
     PatchSprite(SpriteId, Address),
     DeleteSprite(SpriteId),
+    DeleteAllSprites,
 }
 
 pub enum Mode {
@@ -96,6 +97,10 @@ impl I2CServer {
                                         self.mode = Mode::Waiting(FxCommand::DeleteSprite, arg);
                                         continue;
                                     }
+                                    0x83 => {
+                                        self.mode = Mode::Waiting(FxCommand::DeleteAllSprites, arg);
+                                        continue;
+                                    }
                                     _ => continue,
                                 }
                             }
@@ -118,11 +123,18 @@ impl I2CServer {
                                 Request::CreateSprite(sprite_id, info)
                             }
                             Mode::Waiting(FxCommand::DeleteSprite, sprite_id) => {
+                                self.mode = Mode::Command;
                                 if self.payload[0] != sprite_id || &self.payload[1..4] != b"del" {
-                                    self.mode = Mode::Command;
                                     continue;
                                 }
                                 Request::DeleteSprite(sprite_id)
+                            }
+                            Mode::Waiting(FxCommand::DeleteAllSprites, 0) => {
+                                self.mode = Mode::Command;
+                                if &self.payload[..4] != b"dela" {
+                                    continue;
+                                }
+                                Request::DeleteAllSprites
                             }
                             Mode::Upload(sprite_id, info, sent) => {
                                 self.mode = if info.bitmap_len() > sent + packet_len {

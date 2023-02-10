@@ -102,7 +102,8 @@ mod klaptik_fx {
             &mut rcc,
         ));
 
-        defmt::info!("init complated");
+        render::spawn(RenderRequest::new(Point::zero(), 0xff, 0)).expect("initial render failed");
+
         (
             Shared {
                 controls,
@@ -142,11 +143,17 @@ mod klaptik_fx {
                     Request::Render(req) => render::spawn(req).expect("render failed"),
                     Request::ReadRegister(reg) => {
                         server.set_response(match reg {
-                            0xff => display.lock(|disp| disp.config()),
+                            0xff => {
+                                let mut state = display.lock(|disp| disp.config());
+                                let sprites =
+                                    store.lock(|store| store.get_sprites_count().unwrap_or(0));
+                                state[3] = sprites;
+                                state
+                            }
                             0xfe => controls.lock(|ctrl| ctrl.buttons_state()),
                             0xfd => controls.lock(|ctrl| ctrl.encoder_state()),
                             reg => store
-                                .lock(|store| store.read_register(reg))
+                                .lock(|store| store.read_nvm(reg))
                                 .unwrap_or([0xff, 0xff, 0xff, 0xff]),
                         });
                     }
@@ -154,7 +161,7 @@ mod klaptik_fx {
                         0xff => display.lock(|disp| disp.set_config(val)),
                         reg if reg < 0xfd => {
                             store
-                                .lock(|store| store.write_register(reg, val))
+                                .lock(|store| store.write_nvm(reg, val))
                                 .unwrap_or_else(|_| defmt::error!("reg write failed"));
                         }
                         _ => {}
@@ -170,6 +177,9 @@ mod klaptik_fx {
                     Request::DeleteSprite(sprite_id) => store
                         .lock(|store| store.delete_sprite(sprite_id))
                         .unwrap_or_else(|_| defmt::error!("delete sprite failed")),
+                    Request::DeleteAllSprites => store
+                        .lock(|store| store.delete_all_sprites())
+                        .unwrap_or_else(|_| defmt::error!("delete all sprites failed")),
                 },
                 Err(_) => {
                     defmt::error!("poll failed");

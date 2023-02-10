@@ -8,7 +8,7 @@ use uluru::LRUCache;
 
 pub type StoreAdapterError = kvs::adapters::spi::Error<SharedBus<SpiDev>, EepromCS>;
 pub type FlashStoreError = kvs::Error<StoreAdapterError>;
-pub type StoreResul<T> = Result<T, FlashStoreError>;
+pub type StoreResult<T> = Result<T, FlashStoreError>;
 
 pub type FlashStore = KVStore<
     PagedAdapter<SpiStoreAdapter<SharedBus<SpiDev>, EepromCS, FLASH_ADDR_BYTES>, FLASH_PAGE_SIZE>,
@@ -45,7 +45,7 @@ pub struct Store {
 }
 
 impl Store {
-    pub fn new(spi_dev: SharedBus<SpiDev>, cs: EepromCS) -> StoreResul<Self> {
+    pub fn new(spi_dev: SharedBus<SpiDev>, cs: EepromCS) -> StoreResult<Self> {
         let cfg = SpiAdapterConfig::new(FLASH_MAX_ADDRESS);
         let store_cfg = StoreConfig::new(KVS_MAGIC, KVS_MAX_HOPS).nonce(KVS_NONCE);
         let adapter = PagedAdapter::new(SpiStoreAdapter::new(spi_dev, cs, cfg));
@@ -58,18 +58,18 @@ impl Store {
         self.fs.adapter().read(addr, buf)
     }
 
-    pub fn read_register(&mut self, reg: u8) -> StoreResul<[u8; 4]> {
+    pub fn read_nvm(&mut self, reg: u8) -> StoreResult<[u8; 4]> {
         let mut scratch = [0; 4];
         self.fs.load(&[b'm', reg], &mut scratch)?;
         Ok(scratch)
     }
 
-    pub fn write_register(&mut self, reg: u8, val: [u8; 4]) -> StoreResul<()> {
+    pub fn write_nvm(&mut self, reg: u8, val: [u8; 4]) -> StoreResult<()> {
         self.fs.insert(&[b'm', reg], &val)?;
         Ok(())
     }
 
-    pub fn create_sprite(&mut self, sprite_id: SpriteId, info: SpriteInfo) -> StoreResul<()> {
+    pub fn create_sprite(&mut self, sprite_id: SpriteId, info: SpriteInfo) -> StoreResult<()> {
         self.fs.alloc(&[b'b', sprite_id], info.bitmap_len(), None)?;
         self.fs.insert_val::<_, 8>(&[b's', sprite_id], &info)?;
         self.cache.clear();
@@ -81,16 +81,29 @@ impl Store {
         sprite_id: SpriteId,
         offset: Address,
         patch: &[u8],
-    ) -> StoreResul<()> {
+    ) -> StoreResult<()> {
         self.fs.patch(&[b'b', sprite_id], offset, patch)?;
         self.cache.clear();
         Ok(())
     }
 
-    pub fn delete_sprite(&mut self, sprite_id: SpriteId) -> StoreResul<()> {
+    pub fn delete_sprite(&mut self, sprite_id: SpriteId) -> StoreResult<()> {
         self.cache.clear();
         self.fs.remove(&[b'b', sprite_id])?;
         self.fs.remove(&[b's', sprite_id])
+    }
+
+    pub fn get_sprites_count(&mut self) -> StoreResult<u8> {
+        Ok(self.fs.keys_with_prefix(&[b'b']).count() as _)
+    }
+
+    pub fn delete_all_sprites(&mut self) -> StoreResult<()> {
+        self.cache.clear();
+        while let Some(sprite_id) = self.fs.keys_with_prefix(&[b'b']).map(|k| k.key()[0]).next() {
+            self.fs.remove(&[b'b', sprite_id])?;
+            self.fs.remove(&[b's', sprite_id])?;
+        }
+        Ok(())
     }
 
     pub fn get_sprite(&mut self, sprite_id: SpriteId) -> Option<Sprite> {
@@ -106,7 +119,7 @@ impl Store {
         }
     }
 
-    fn sprite_lookup(&mut self, sprite_id: SpriteId) -> StoreResul<Option<Sprite>> {
+    fn sprite_lookup(&mut self, sprite_id: SpriteId) -> StoreResult<Option<Sprite>> {
         match self.fs.load_val::<_, 8>(&[b's', sprite_id]) {
             Ok(info) => {
                 let bucket = self.fs.lookup(&[b'b', sprite_id])?;

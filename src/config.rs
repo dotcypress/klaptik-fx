@@ -8,7 +8,7 @@ pub const FLASH_MAX_ADDRESS: usize = 0x1ffff;
 pub const FLASH_ADDR_BYTES: usize = 3;
 pub const FLASH_PAGE_SIZE: usize = 256;
 
-pub const KVS_MAGIC: u32 = 0x2a2a;
+pub const KVS_MAGIC: u32 = 0x2a2b;
 pub const KVS_NONCE: u16 = 45_033;
 pub const KVS_BUCKETS: usize = 512;
 pub const KVS_SLOTS: usize = 16;
