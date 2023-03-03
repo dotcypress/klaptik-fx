@@ -28,7 +28,10 @@ impl DisplayController {
         canvas.reset(delay);
         canvas
             .link()
-            .command(|tx| tx.write(&[Command::SegmentDirectionRev as _]))
+            .command(|tx| {
+                tx.write(&[Command::SegmentDirectionRev as _])?;
+                tx.write(&[Command::SetCOMReverse as _])
+            })
             .ok();
         Self {
             backlight_pwm,

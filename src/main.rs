@@ -73,7 +73,7 @@ mod klaptik_fx {
         let spi = ctx.device.SPI1.spi(
             (pins.spi_clk, pins.spi_miso, pins.spi_mosi),
             spi::MODE_0,
-            16.MHz(),
+            4.MHz(),
             &mut rcc,
         );
         let spi = shared_bus_rtic::new!(spi, SpiDev);
