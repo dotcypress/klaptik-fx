@@ -1,8 +1,6 @@
-# klaptik-fx
+# {{project-name}}
 
-Experimental Semigraphics Display.
-
-<img alt="klaptik-fx" src="pcb/klaptik-fx.png" width="500" />
+Usage: `cargo generate --git dotcypress/klaptik-fx -b template`
 
 ## License
 

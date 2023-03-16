@@ -1,3 +1,0 @@
-[submodule "pcb/jb-lib"]
-	path = pcb/jb-lib
-	url = git@github.com:dotcypress/kicad-lib.git
