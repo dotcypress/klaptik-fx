@@ -23,6 +23,7 @@ uluru = "3.0.0"
 
 [features]
 probe = ["dep:panic-probe"]
+qei = []
 
 [profile.dev]
 incremental = false

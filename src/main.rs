@@ -40,11 +40,13 @@ mod klaptik_fx {
         exti: EXTI,
         display: DisplayController,
         store: Store,
-        controls: Controls,
+        gpio_a: Gpio,
+        gpio_b: Gpio,
     }
 
     #[local]
     struct Local {
+        encoder: Option<Encoder>,
         server: I2CServer,
     }
 
@@ -59,9 +61,6 @@ mod klaptik_fx {
             ctx.device.GPIOC,
             &mut rcc,
         );
-        pins.gpio_a1.listen(SignalEdge::All, &mut exti);
-        pins.gpio_a2.listen(SignalEdge::All, &mut exti);
-        pins.gpio_b1.listen(SignalEdge::All, &mut exti);
 
         let mut delay = ctx.device.TIM1.delay(&mut rcc);
 
@@ -97,21 +96,36 @@ mod klaptik_fx {
             &mut delay,
         );
 
-        let controls = Controls::new(delay.release().qei(
-            (pins.gpio_b2.into_analog(), pins.gpio_b3.into_analog()),
-            &mut rcc,
-        ));
+        let gpio_a = Gpio::default();
+        let gpio_b = Gpio::default();
+
+        pins.gpio_a1.listen(SignalEdge::All, &mut exti);
+        pins.gpio_a2.listen(SignalEdge::All, &mut exti);
+        pins.gpio_b1.listen(SignalEdge::All, &mut exti);
+
+        let encoder = if cfg!(feature = "qei") {
+            let qei = delay.release().qei(
+                (pins.gpio_b2.into_analog(), pins.gpio_b3.into_analog()),
+                &mut rcc,
+            );
+            Some(Encoder::new(qei))
+        } else {
+            pins.gpio_b2.listen(SignalEdge::All, &mut exti);
+            pins.gpio_b3.listen(SignalEdge::All, &mut exti);
+            None
+        };
 
         render::spawn(RenderRequest::new(Point::zero(), 0xff, 0)).expect("initial render failed");
 
         (
             Shared {
-                controls,
+                gpio_a,
+                gpio_b,
                 display,
                 exti,
                 store,
             },
-            Local { server },
+            Local { encoder, server },
             init::Monotonics(),
         )
     }
@@ -123,18 +137,44 @@ mod klaptik_fx {
     }
 
     #[task(binds = EXTI2_3)]
-    fn gpio_b_edge(_: gpio_b_edge::Context) {
+    fn gpio_b1_edge(_: gpio_b1_edge::Context) {
         gpio_event::spawn(Event::GPIO2).ok();
+        gpio_event::spawn(Event::GPIO3).ok();
     }
 
-    #[task(priority = 3, binds = I2C1, local = [server], shared = [display, controls, store])]
+    #[task(binds = EXTI4_15)]
+    fn gpio_b23_edge(_: gpio_b23_edge::Context) {
+        gpio_event::spawn(Event::GPIO8).ok();
+    }
+
+    #[task(priority = 2, shared = [exti, gpio_a, gpio_b])]
+    fn gpio_event(ctx: gpio_event::Context, ev: Event) {
+        (ctx.shared.exti, ctx.shared.gpio_a, ctx.shared.gpio_b).lock(|exti, gpio_a, gpio_b| {
+            for edge in [SignalEdge::Falling, SignalEdge::Rising] {
+                if exti.is_pending(ev, edge) {
+                    match ev {
+                        Event::GPIO0 => gpio_a.record_edge(0, edge),
+                        Event::GPIO1 => gpio_a.record_edge(1, edge),
+                        Event::GPIO2 => gpio_b.record_edge(0, edge),
+                        Event::GPIO8 => gpio_b.record_edge(1, edge),
+                        Event::GPIO3 => gpio_b.record_edge(2, edge),
+                        _ => unreachable!(),
+                    };
+                }
+            }
+            exti.unpend(ev);
+        });
+    }
+
+    #[task(priority = 3, binds = I2C1, local = [server, encoder], shared = [display, gpio_a, gpio_b, store])]
     fn i2c_rx(ctx: i2c_rx::Context) {
         let i2c_rx::SharedResources {
             mut display,
-            mut controls,
+            mut gpio_a,
+            mut gpio_b,
             mut store,
         } = ctx.shared;
-        let server = ctx.local.server;
+        let i2c_rx::LocalResources { server, encoder } = ctx.local;
 
         loop {
             match server.poll() {
@@ -144,14 +184,17 @@ mod klaptik_fx {
                     Request::ReadRegister(reg) => {
                         server.set_response(match reg {
                             0xff => {
-                                let mut state = display.lock(|disp| disp.config());
-                                let sprites =
-                                    store.lock(|store| store.get_sprites_count().unwrap_or(0));
-                                state[3] = sprites;
+                                let mut state = display.lock(|display| display.config());
+                                state[3] =
+                                    store.lock(|store| store.get_sprites_count()).unwrap_or(0);
                                 state
                             }
-                            0xfe => controls.lock(|ctrl| ctrl.buttons_state()),
-                            0xfd => controls.lock(|ctrl| ctrl.encoder_state()),
+                            0xfe => gpio_a.lock(|gpio_a| gpio_a.as_bytes()),
+                            0xfd => gpio_b.lock(|gpio_b| gpio_b.as_bytes()),
+                            0xfc => encoder
+                                .as_ref()
+                                .map(|enc| enc.as_bytes())
+                                .unwrap_or([0xff, 0xff, 0xff, 0xff]),
                             reg => store
                                 .lock(|store| store.read_nvm(reg))
                                 .unwrap_or([0xff, 0xff, 0xff, 0xff]),
@@ -187,18 +230,6 @@ mod klaptik_fx {
                 }
             }
         }
-    }
-
-    #[task(priority = 2, shared = [exti, controls])]
-    fn gpio_event(ctx: gpio_event::Context, ev: Event) {
-        (ctx.shared.exti, ctx.shared.controls).lock(|exti, control| {
-            for edge in [SignalEdge::Falling, SignalEdge::Rising] {
-                if exti.is_pending(ev, edge) {
-                    control.record_edge(ev, edge);
-                }
-            }
-            exti.unpend(ev);
-        });
     }
 
     #[task(capacity = 128, shared = [display, store])]

@@ -1,32 +1,6 @@
 use crate::*;
 use hal::hal::Direction;
 
-pub struct Controls {
-    buttons: Buttons,
-    encoder: Encoder,
-}
-
-impl Controls {
-    pub fn new(qei: Qei) -> Self {
-        Self {
-            encoder: Encoder::new(qei),
-            buttons: Buttons::default(),
-        }
-    }
-
-    pub fn record_edge(&mut self, ev: Event, edge: SignalEdge) {
-        self.buttons.record_edge(ev, edge);
-    }
-
-    pub fn buttons_state(&mut self) -> [u8; 4] {
-        self.buttons.drain().as_bytes()
-    }
-
-    pub fn encoder_state(&mut self) -> [u8; 4] {
-        self.encoder.as_bytes()
-    }
-}
-
 pub struct Encoder {
     qei: Qei,
 }
@@ -48,29 +22,13 @@ impl Encoder {
 }
 
 #[derive(Default)]
-pub struct Buttons {
-    falling_edges: [u8; 3],
-    rising_edges: [u8; 3],
+pub struct Gpio {
+    falling_edges: [u8; 4],
+    rising_edges: [u8; 4],
 }
 
-impl Buttons {
-    pub fn drain(&mut self) -> Self {
-        let snaphot = Self {
-            falling_edges: self.falling_edges,
-            rising_edges: self.rising_edges,
-        };
-        self.falling_edges = [0; 3];
-        self.rising_edges = [0; 3];
-        snaphot
-    }
-
-    pub fn record_edge(&mut self, ev: Event, edge: SignalEdge) {
-        let idx = match ev {
-            Event::GPIO0 => 0,
-            Event::GPIO1 => 1,
-            Event::GPIO2 => 2,
-            _ => unreachable!(),
-        };
+impl Gpio {
+    pub fn record_edge(&mut self, idx: usize, edge: SignalEdge) {
         match edge {
             SignalEdge::Falling => self.falling_edges[idx] += 1,
             SignalEdge::Rising => self.rising_edges[idx] += 1,
@@ -78,11 +36,13 @@ impl Buttons {
         }
     }
 
-    pub fn as_bytes(&self) -> [u8; 4] {
+    pub fn as_bytes(&mut self) -> [u8; 4] {
         let mut res = [0; 4];
-        for (idx, b) in res.iter_mut().enumerate().take(3) {
+        for (idx, b) in res.iter_mut().enumerate() {
             *b = self.falling_edges[idx] | self.rising_edges[idx] << 4;
         }
+        self.falling_edges = [0; 4];
+        self.rising_edges = [0; 4];
         res
     }
 }
