@@ -7,8 +7,8 @@
   (paper "USLetter")
   (title_block
     (title "Klaptik-FX")
-    (date "2023-01-15")
-    (rev "0x01")
+    (date "2023-03-19")
+    (rev "0x02")
   )
 
   (layers
@@ -4283,7 +4283,7 @@
   (gr_text "B2" (at 147.3962 99.06 270) (layer "B.SilkS") (tstamp 6d5e3851-6b7f-4b88-94a5-ede403fad69b)
     (effects (font (size 0.55 0.55) (thickness 0.12) bold) (justify left bottom mirror))
   )
-  (gr_text "B3" (at 147.3454 101.0412 270) (layer "B.SilkS") (tstamp 8bccceda-5c61-4a71-b257-12f7dee52548)
+  (gr_text "B3" (at 147.3454 96.0374 270) (layer "B.SilkS") (tstamp 8bccceda-5c61-4a71-b257-12f7dee52548)
     (effects (font (size 0.55 0.55) (thickness 0.12) bold) (justify bottom mirror))
   )
   (gr_text "SWD\nCLK" (at 146.431 103.759 270) (layer "B.SilkS") (tstamp 92ce93f8-54b0-4932-a102-39a2452a0387)
@@ -4562,7 +4562,7 @@
   (gr_text "I2C\nCLK" (at 113.7666 101.1682 90) (layer "B.SilkS") (tstamp c3f09027-424e-406a-b07d-0ee38638698b)
     (effects (font (size 0.55 0.55) (thickness 0.12) bold) (justify bottom mirror))
   )
-  (gr_text "B1" (at 147.4216 96.4692 270) (layer "B.SilkS") (tstamp e121ed61-ff1d-4b66-abdb-e7006a5d0504)
+  (gr_text "B1" (at 147.3708 101.473 270) (layer "B.SilkS") (tstamp e121ed61-ff1d-4b66-abdb-e7006a5d0504)
     (effects (font (size 0.55 0.55) (thickness 0.12) bold) (justify left bottom mirror))
   )
   (gr_text "A1" (at 112.903 108.458 90) (layer "B.SilkS") (tstamp e3496df2-fce9-4d31-94e8-1c498c58df63)
