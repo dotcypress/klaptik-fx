@@ -1,6 +1,6 @@
 {
   "board": {
-    "active_layer": 0,
+    "active_layer": 31,
     "active_layer_preset": "",
     "auto_track_width": true,
     "hidden_netclasses": [],
@@ -62,8 +62,8 @@
       36,
       40
     ],
-    "visible_layers": "000908a_80000003",
-    "zone_display_mode": 1
+    "visible_layers": "000908a_80000007",
+    "zone_display_mode": 0
   },
   "meta": {
     "filename": "klaptik-fx.kicad_prl",
