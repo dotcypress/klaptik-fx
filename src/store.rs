@@ -40,18 +40,19 @@ pub struct Sprite {
 }
 
 pub struct Store {
+    _wp: EepromWP,
     fs: FlashStore,
     cache: LRUCache<Sprite, SPRITE_CACHE_SIZE>,
 }
 
 impl Store {
-    pub fn new(spi_dev: SharedBus<SpiDev>, cs: EepromCS) -> StoreResult<Self> {
+    pub fn new(spi_dev: SharedBus<SpiDev>, cs: EepromCS, _wp: EepromWP) -> StoreResult<Self> {
         let cfg = SpiAdapterConfig::new(FLASH_MAX_ADDRESS);
         let store_cfg = StoreConfig::new(KVS_MAGIC, KVS_MAX_HOPS).nonce(KVS_NONCE);
         let adapter = PagedAdapter::new(SpiStoreAdapter::new(spi_dev, cs, cfg));
         let fs = FlashStore::open(adapter, store_cfg, true)?;
         let cache = LRUCache::default();
-        Ok(Self { fs, cache })
+        Ok(Self { fs, cache, _wp })
     }
 
     pub fn read(&mut self, addr: Address, buf: &mut [u8]) -> Result<(), StoreAdapterError> {

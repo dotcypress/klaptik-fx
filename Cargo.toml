@@ -18,12 +18,11 @@ panic-halt = "0.2.0"
 panic-probe = { version = "0.3.0", features = ["print-defmt"], optional = true }
 serde = { version = "1.0.140", default-features = false }
 shared-bus-rtic = { version = "0.2.2", features = ['cortex-m', 'thumbv6'] }
-stm32g0xx-hal = { version = "0.2.0", features = ["rt", "stm32g030"] }
+stm32g0xx-hal = { version = "0.2.0", features = ["rt", "stm32g041"] }
 uluru = "3.0.0"
 
 [features]
 probe = ["dep:panic-probe"]
-qei = []
 
 [profile.dev]
 incremental = false

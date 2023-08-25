@@ -1,6 +1,6 @@
-/* Linker script for the STM32G030F6Px */
+/* Linker script for the STM32G041G8 */
 MEMORY
 {
-  FLASH : ORIGIN = 0x08000000, LENGTH = 32K
+  FLASH : ORIGIN = 0x08000000, LENGTH = 64K
   RAM : ORIGIN = 0x20000000, LENGTH = 8K
 }
