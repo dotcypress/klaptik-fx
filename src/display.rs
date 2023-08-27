@@ -5,13 +5,12 @@ use klaptik::drivers::st7567::*;
 use klaptik::Point;
 use shared_bus_rtic::SharedBus;
 
-pub type DisplayDriver = ST7567<SharedBus<SpiDev>, LcdReset, LcdCS, LcdDC>;
 pub type Backlight = PwmPin<TIM14, Channel1>;
+pub type DisplayDriver = ST7567<SharedBus<SpiDev>, LcdReset, LcdCS, LcdDC>;
 
 pub struct DisplayController {
-    backlight_pwm: Backlight,
+    backlight: Backlight,
     canvas: DisplayDriver,
-    config: [u8; 4],
 }
 
 impl DisplayController {
@@ -20,7 +19,7 @@ impl DisplayController {
         lcd_reset: LcdReset,
         lcd_cs: LcdCS,
         lcd_dc: LcdDC,
-        backlight_pwm: Backlight,
+        backlight: Backlight,
         delay: &mut Delay<TIM1>,
     ) -> Self {
         let mut canvas = ST7567::new(spi, lcd_cs, lcd_dc, lcd_reset);
@@ -30,29 +29,25 @@ impl DisplayController {
             .link()
             .command(|tx| tx.write(&[Command::SegmentDirectionRev as _]))
             .ok();
-        Self {
-            backlight_pwm,
-            canvas,
-            config: [0; 4],
-        }
+        Self { backlight, canvas }
     }
 
-    pub fn config(&mut self) -> [u8; 4] {
-        self.config
+    pub fn set_backlight(&mut self, level: u8) {
+        let backlight = level.clamp(0, 15) as u32;
+        let duty = backlight * self.backlight.get_max_duty() as u32 / 16;
+        self.backlight.set_duty(duty as _);
     }
 
-    pub fn set_config(&mut self, cfg: [u8; 4]) {
-        self.config = cfg;
+    pub fn on(&mut self) {
+        self.canvas.on();
+    }
 
-        if self.config[0] & 1 == 1 {
-            self.canvas.on();
-        } else {
-            self.canvas.off();
-        }
+    pub fn off(&mut self) {
+        self.canvas.off();
+    }
 
-        let backlight = self.config[1].clamp(0, 15) as u32;
-        let duty = backlight * self.backlight_pwm.get_max_duty() as u32 / 16;
-        self.backlight_pwm.set_duty(duty as _);
+    pub fn canvas(&mut self) -> &mut DisplayDriver {
+        &mut self.canvas
     }
 }
 

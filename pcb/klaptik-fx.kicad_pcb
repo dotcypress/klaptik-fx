@@ -2422,6 +2422,11 @@
       (net 45 "/BAT+") (pinfunction "BATT") (pintype "power_in") (tstamp cde1c049-4e3f-4ebc-9edd-ecf2c21bf0fd))
     (pad "10" smd rect (at 0 -1.0033 270) (size 0.254 0.7112) (layers "F.Cu" "F.Paste" "F.Mask")
       (net 6 "VCC") (pinfunction "SYS") (pintype "power_in") (tstamp 23010722-ec8a-4669-9570-50cf6d854a53))
+    (model ":KICAD7_3DMODEL_DIR:Package_DFN_QFN.3dshapes/DFN-8_2x2mm_P0.5mm.step"
+      (offset (xyz 0 0 0))
+      (scale (xyz 1 1 1))
+      (rotate (xyz 0 0 0))
+    )
   )
 
   (footprint "Symbol:OSHW-Logo_5.7x6mm_SilkScreen" (layer "B.Cu")

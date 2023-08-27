@@ -5,6 +5,9 @@ use hal::prelude::*;
 use hal::rcc::Rcc;
 use hal::stm32::*;
 
+pub type I2cDev = hal::i2c::I2c<I2C2, I2cSda, I2cClk>;
+pub type SpiDev = hal::spi::Spi<SPI2, (SpiClk, SpiMiso, SpiMosi)>;
+
 // SWD
 pub type SwdIo = PA13<DefaultMode>;
 pub type SwdClk = PA14<DefaultMode>;
@@ -43,9 +46,6 @@ pub type Gpio4 = PA4<Input<Floating>>;
 pub type Gpio5 = PA5<Input<Floating>>;
 pub type Gpio6 = PA6<Input<Floating>>;
 pub type Gpio7 = PA7<Input<Floating>>;
-
-pub type I2cDev = hal::i2c::I2c<I2C2, I2cSda, I2cClk>;
-pub type SpiDev = hal::spi::Spi<SPI2, (SpiClk, SpiMiso, SpiMosi)>;
 
 pub struct Gpio {
     pub gpio0: Gpio0,

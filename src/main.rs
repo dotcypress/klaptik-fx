@@ -13,7 +13,7 @@ extern crate panic_halt;
 
 mod config;
 mod display;
-mod pins;
+mod wiring;
 mod server;
 mod store;
 
@@ -21,7 +21,7 @@ use config::*;
 use display::*;
 use hal::{exti::*, gpio::*, i2c, prelude::*, spi, stm32, stm32::*, timer::*};
 use klaptik::{drivers::fx::FxCommand, *};
-use pins::*;
+use wiring::*;
 use server::*;
 use store::*;
 
@@ -141,7 +141,7 @@ mod klaptik_fx {
     #[task(priority = 3, binds = I2C1, local = [server], shared = [display, store])]
     fn i2c_rx(ctx: i2c_rx::Context) {
         let i2c_rx::SharedResources {
-            mut display,
+            display: _,
             mut store,
         } = ctx.shared;
         let i2c_rx::LocalResources { server } = ctx.local;
@@ -153,19 +153,19 @@ mod klaptik_fx {
                     Request::Render(req) => render::spawn(req).expect("render failed"),
                     Request::ReadRegister(reg) => {
                         server.set_response(match reg {
-                            0xff => {
-                                let mut state = display.lock(|display| display.config());
-                                state[3] =
-                                    store.lock(|store| store.get_sprites_count()).unwrap_or(0);
-                                state
-                            }
+                            // 0xff => {
+                            //     let mut state = display.lock(|display| display.config());
+                            //     state[3] =
+                            //         store.lock(|store| store.get_sprites_count()).unwrap_or(0);
+                            //     state
+                            // }
                             reg => store
                                 .lock(|store| store.read_nvm(reg))
                                 .unwrap_or([0xff, 0xff, 0xff, 0xff]),
                         });
                     }
                     Request::WriteRegister(reg, val) => match reg {
-                        0xff => display.lock(|disp| disp.set_config(val)),
+                        // 0xff => display.lock(|disp| disp.set_config(val)),
                         reg if reg < 0xfd => {
                             store
                                 .lock(|store| store.write_nvm(reg, val))
