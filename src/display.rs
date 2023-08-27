@@ -1,12 +1,12 @@
 use crate::*;
+
 use hal::timer::delay::Delay;
 use hal::timer::pwm::PwmPin;
-use klaptik::drivers::st7567::*;
+use klaptik::drivers::st7567;
 use klaptik::Point;
-use shared_bus_rtic::SharedBus;
 
 pub type Backlight = PwmPin<TIM14, Channel1>;
-pub type DisplayDriver = ST7567<SharedBus<SpiDev>, LcdReset, LcdCS, LcdDC>;
+pub type DisplayDriver = st7567::ST7567<SharedBus<SpiDev>, LcdReset, LcdCS, LcdDC>;
 
 pub struct DisplayController {
     backlight: Backlight,
@@ -22,12 +22,12 @@ impl DisplayController {
         backlight: Backlight,
         delay: &mut Delay<TIM1>,
     ) -> Self {
-        let mut canvas = ST7567::new(spi, lcd_cs, lcd_dc, lcd_reset);
+        let mut canvas = st7567::ST7567::new(spi, lcd_cs, lcd_dc, lcd_reset);
         canvas.set_offset(Point::new(4, 0));
         canvas.reset(delay);
         canvas
             .link()
-            .command(|tx| tx.write(&[Command::SegmentDirectionRev as _]))
+            .command(|tx| tx.write(&[st7567::Command::SegmentDirectionRev as _]))
             .ok();
         Self { backlight, canvas }
     }

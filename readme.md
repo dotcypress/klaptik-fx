@@ -1,8 +1,4 @@
-# klaptik-fx
-
-Experimental Semigraphics Display.
-
-<img alt="klaptik-fx" src="pcb/klaptik-fx.png" width="500" />
+# klaptik-fx-app
 
 ## License
 
