@@ -33,6 +33,7 @@ mod klaptik_fx_app {
         app: App,
         display: SpriteDisplay<DisplayController, { SPRITES.len() }>,
         store: Store,
+        i2c: I2cDev,
     }
 
     #[local]
@@ -69,7 +70,7 @@ mod klaptik_fx_app {
         lcd_backlight.enable();
         lcd_backlight.set_duty(0);
 
-        let _i2c: I2cDev = ctx.device.I2C2.i2c(
+        let i2c = ctx.device.I2C2.i2c(
             pins.i2c_sda,
             pins.i2c_clk,
             i2c::Config::new(400.kHz()),
@@ -105,6 +106,7 @@ mod klaptik_fx_app {
             Shared {
                 display,
                 store,
+                i2c,
                 app: App::new(),
             },
             Local { ui_timer, exti, ui },
@@ -112,12 +114,13 @@ mod klaptik_fx_app {
         )
     }
 
-    #[task(binds = TIM17, local = [ui, ui_timer], shared = [app, display, store])]
+    #[task(binds = TIM17, local = [ui, ui_timer], shared = [app, display, i2c, store])]
     fn ui_timer_tick(ctx: ui_timer_tick::Context) {
         let ui_timer_tick::LocalResources { ui, ui_timer } = ctx.local;
         let ui_timer_tick::SharedResources {
             mut app,
             mut display,
+            i2c: _,
             store: _,
         } = ctx.shared;
         app.lock(|app| {
