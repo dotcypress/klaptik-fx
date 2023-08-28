@@ -1,3 +1,9 @@
+mod assets;
+mod ui;
+
+pub use ui::*;
+pub use assets::*;
+
 pub struct AppState {
     pub frame: usize,
 }

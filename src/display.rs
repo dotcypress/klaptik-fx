@@ -1,12 +1,5 @@
 use crate::*;
-
-use hal::timer::delay::Delay;
-use hal::timer::pwm::PwmPin;
-use klaptik::drivers::st7567;
-use klaptik::Point;
-
-pub type Backlight = PwmPin<TIM14, Channel1>;
-pub type DisplayDriver = st7567::ST7567<SharedBus<SpiDev>, LcdReset, LcdCS, LcdDC>;
+use drivers::st7567::Command;
 
 pub struct DisplayController {
     backlight: Backlight,
@@ -20,14 +13,14 @@ impl DisplayController {
         lcd_cs: LcdCS,
         lcd_dc: LcdDC,
         backlight: Backlight,
-        delay: &mut Delay<TIM1>,
+        delay: &mut DisplayDelay,
     ) -> Self {
-        let mut canvas = st7567::ST7567::new(spi, lcd_cs, lcd_dc, lcd_reset);
-        canvas.set_offset(Point::new(4, 0));
+        let mut canvas = DisplayDriver::new(spi, lcd_cs, lcd_dc, lcd_reset);
+        canvas.set_offset(klaptik::Point::new(4, 0));
         canvas.reset(delay);
         canvas
             .link()
-            .command(|tx| tx.write(&[st7567::Command::SegmentDirectionRev as _]))
+            .command(|tx| tx.write(&[Command::SegmentDirectionRev as _]))
             .ok();
         Self { backlight, canvas }
     }
@@ -51,8 +44,8 @@ impl DisplayController {
     }
 }
 
-impl Canvas for DisplayController {
-    fn draw(&mut self, bounds: Rectangle, bitmap: &[u8]) {
+impl klaptik::Canvas for DisplayController {
+    fn draw(&mut self, bounds: klaptik::Rectangle, bitmap: &[u8]) {
         self.canvas.draw(bounds, bitmap);
     }
 }

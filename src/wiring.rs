@@ -1,12 +1,17 @@
-use crate::hal::gpio::{gpioa::*, gpiob::*, gpioc::*};
 use hal::gpio::*;
-use hal::gpio::{DefaultMode, OpenDrain, Output, PushPull};
 use hal::prelude::*;
 use hal::rcc::Rcc;
-use hal::stm32::*;
+use hal::stm32;
+use hal::timer::*;
+use klaptik::drivers::st7567;
+use shared_bus_rtic::SharedBus;
 
-pub type I2cDev = hal::i2c::I2c<I2C2, I2cSda, I2cClk>;
-pub type SpiDev = hal::spi::Spi<SPI2, (SpiClk, SpiMiso, SpiMosi)>;
+pub type Backlight = pwm::PwmPin<stm32::TIM14, Channel1>;
+pub type DisplayDelay = delay::Delay<stm32::TIM1>;
+pub type DisplayDriver = st7567::ST7567<SharedBus<SpiDev>, LcdReset, LcdCS, LcdDC>;
+
+pub type I2cDev = hal::i2c::I2c<stm32::I2C2, I2cSda, I2cClk>;
+pub type SpiDev = hal::spi::Spi<stm32::SPI2, (SpiClk, SpiMiso, SpiMosi)>;
 
 // SWD
 pub type SwdIo = PA13<DefaultMode>;
@@ -93,7 +98,12 @@ pub struct Pins {
 }
 
 impl Pins {
-    pub fn new(gpioa: GPIOA, gpiob: GPIOB, gpioc: GPIOC, rcc: &mut Rcc) -> Self {
+    pub fn new(
+        gpioa: stm32::GPIOA,
+        gpiob: stm32::GPIOB,
+        gpioc: stm32::GPIOC,
+        rcc: &mut Rcc,
+    ) -> Self {
         let port_a = gpioa.split(rcc);
         let port_b = gpiob.split(rcc);
         let port_c = gpioc.split(rcc);

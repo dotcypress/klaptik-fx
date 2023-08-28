@@ -14,34 +14,30 @@ extern crate panic_halt;
 mod app;
 mod display;
 mod store;
-mod ui;
 mod wiring;
 
 use app::*;
 use display::*;
-use hal::{exti::*, gpio::SignalEdge, i2c, prelude::*, spi, stm32, stm32::*, timer::*};
+use hal::{exti::*, gpio::SignalEdge, i2c, prelude::*, spi, stm32, timer::*};
 use klaptik::*;
-use kvs::adapters::paged::PagedAdapter;
-use kvs::adapters::spi::*;
-use kvs::*;
 use shared_bus_rtic::SharedBus;
 use store::*;
-use ui::*;
 use wiring::*;
 
 #[rtic::app(device = stm32, peripherals = true, dispatchers = [CEC])]
-mod klaptik_fx {
+mod klaptik_fx_app {
     use super::*;
 
     #[shared]
     struct Shared {
         app: App,
-        display: SpriteDisplay<DisplayController, 3>,
+        display: SpriteDisplay<DisplayController, { SPRITES.len() }>,
+        store: Store,
     }
 
     #[local]
     struct Local {
-        exti: EXTI,
+        exti: stm32::EXTI,
         ui: UI,
         ui_timer: Timer<stm32::TIM17>,
     }
@@ -58,13 +54,27 @@ mod klaptik_fx {
             &mut rcc,
         );
 
-        pins.gpio.gpio0.listen(SignalEdge::All, &mut exti);
-        pins.gpio.gpio2.listen(SignalEdge::All, &mut exti);
+        let gpio = pins.gpio;
+        gpio.gpio0.listen(SignalEdge::All, &mut exti);
+        gpio.gpio2.listen(SignalEdge::All, &mut exti);
+
+        let mut delay = ctx.device.TIM1.delay(&mut rcc);
+
+        let mut ui_timer = ctx.device.TIM17.timer(&mut rcc);
+        ui_timer.start(350.millis());
+        ui_timer.listen();
 
         let backlight_pwm = ctx.device.TIM14.pwm(100.kHz(), &mut rcc);
         let mut lcd_backlight = backlight_pwm.bind_pin(pins.lcd_backlight);
         lcd_backlight.enable();
         lcd_backlight.set_duty(0);
+
+        let _i2c: I2cDev = ctx.device.I2C2.i2c(
+            pins.i2c_sda,
+            pins.i2c_clk,
+            i2c::Config::new(400.kHz()),
+            &mut rcc,
+        );
 
         let spi = ctx.device.SPI2.spi(
             (pins.spi_clk, pins.spi_miso, pins.spi_mosi),
@@ -74,23 +84,9 @@ mod klaptik_fx {
         );
         let spi_bus = shared_bus_rtic::new!(spi, SpiDev);
 
-        let store_adapter = FlashStoreAdapter::new(SpiStoreAdapter::new(
-            spi_bus.acquire(),
-            pins.eeprom_cs,
-            SpiAdapterConfig::new(FLASH_MAX_ADDRESS),
-        ));
-        let store_cfg = StoreConfig::new(KVS_MAGIC, KVS_MAX_HOPS).nonce(KVS_NONCE);
-        let _store = FlashStore::open(store_adapter, store_cfg, true).expect("store open failed");
+        let store = Store::new(spi_bus.acquire(), pins.eeprom_cs, pins.eeprom_wp);
 
-        let _i2c: I2cDev = ctx.device.I2C2.i2c(
-            pins.i2c_sda,
-            pins.i2c_clk,
-            i2c::Config::new(400.kHz()),
-            &mut rcc,
-        );
-
-        let mut delay = ctx.device.TIM1.delay(&mut rcc);
-        let mut display_ctrl = DisplayController::new(
+        let display_ctrl = DisplayController::new(
             spi_bus.acquire(),
             pins.lcd_reset,
             pins.lcd_cs,
@@ -98,31 +94,31 @@ mod klaptik_fx {
             lcd_backlight,
             &mut delay,
         );
-        display_ctrl.set_backlight(10);
-        display_ctrl.on();
+        let mut display = SpriteDisplay::new(display_ctrl, SPRITES);
 
-        let display = SpriteDisplay::new(display_ctrl, SPRITES);
-
-        let app = App::new();
-        let ui = UI::new();
-
-        let mut ui_timer = ctx.device.TIM17.timer(&mut rcc);
-        ui_timer.start(350.millis());
-        ui_timer.listen();
+        let mut ui = UI::new();
+        ui.render(&mut display);
+        display.canvas().set_backlight(8);
+        display.canvas().on();
 
         (
-            Shared { app, display },
+            Shared {
+                display,
+                store,
+                app: App::new(),
+            },
             Local { ui_timer, exti, ui },
             init::Monotonics(),
         )
     }
 
-    #[task(binds = TIM17, local = [ui, ui_timer], shared = [app, display])]
+    #[task(binds = TIM17, local = [ui, ui_timer], shared = [app, display, store])]
     fn ui_timer_tick(ctx: ui_timer_tick::Context) {
         let ui_timer_tick::LocalResources { ui, ui_timer } = ctx.local;
         let ui_timer_tick::SharedResources {
             mut app,
             mut display,
+            store: _,
         } = ctx.shared;
         app.lock(|app| {
             app.animate();
