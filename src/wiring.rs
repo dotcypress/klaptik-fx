@@ -6,16 +6,14 @@ use hal::timer::*;
 use klaptik::drivers::st7567;
 use shared_bus_rtic::SharedBus;
 
+pub type I2cDev = hal::i2c::I2c<stm32::I2C2, I2cSda, I2cClk>;
+pub type SpiDev = hal::spi::Spi<stm32::SPI2, (SpiClk, SpiMiso, SpiMosi)>;
+
 pub type Backlight = pwm::PwmPin<stm32::TIM14, Channel1>;
 pub type DisplayDelay = delay::Delay<stm32::TIM1>;
 pub type DisplayDriver = st7567::ST7567<SharedBus<SpiDev>, LcdReset, LcdCS, LcdDC>;
 
-pub type I2cDev = hal::i2c::I2c<stm32::I2C2, I2cSda, I2cClk>;
-pub type SpiDev = hal::spi::Spi<stm32::SPI2, (SpiClk, SpiMiso, SpiMosi)>;
-
-// SWD
-pub type SwdIo = PA13<DefaultMode>;
-pub type SwdClk = PA14<DefaultMode>;
+pub type Charger = mp2667::MP2667<SharedBus<I2cDev>>;
 
 // Qwiic I2C
 pub type I2cClk = PA11<Output<OpenDrain>>;
@@ -38,8 +36,8 @@ pub type EepromWP = PC15<Output<PushPull>>;
 
 // Power
 pub type PowerEn = PB4<Output<PushPull>>;
-pub type PowerInt = PB5<DefaultMode>;
-pub type PowerFault = PC14<DefaultMode>;
+pub type PowerInt = PB5<Input<Floating>>;
+pub type PowerFault = PC14<Input<Floating>>;
 pub type VccSense = PB0<DefaultMode>;
 
 // GPIO
@@ -51,6 +49,10 @@ pub type Gpio4 = PA4<Input<Floating>>;
 pub type Gpio5 = PA5<Input<Floating>>;
 pub type Gpio6 = PA6<Input<Floating>>;
 pub type Gpio7 = PA7<Input<Floating>>;
+
+// SWD
+pub type SwdIo = PA13<DefaultMode>;
+pub type SwdClk = PA14<DefaultMode>;
 
 pub struct Gpio {
     pub gpio0: Gpio0,
@@ -64,10 +66,6 @@ pub struct Gpio {
 }
 
 pub struct Pins {
-    // SWD
-    pub swd_io: SwdIo,
-    pub swd_clk: SwdClk,
-
     // Qwiic I2C
     pub i2c_clk: I2cClk,
     pub i2c_sda: I2cSda,
@@ -95,6 +93,10 @@ pub struct Pins {
 
     // GPIO
     pub gpio: Gpio,
+
+    // SWD
+    pub swd_io: SwdIo,
+    pub swd_clk: SwdClk,
 }
 
 impl Pins {
@@ -139,8 +141,8 @@ impl Pins {
             eeprom_wp: port_c.pc15.into_push_pull_output_in_state(PinState::High),
 
             power_en: port_b.pb4.into(),
-            power_int: port_b.pb5,
-            power_fault: port_c.pc14,
+            power_int: port_b.pb5.into(),
+            power_fault: port_c.pc14.into(),
             vcc_sense: port_b.pb0,
 
             // GPIO

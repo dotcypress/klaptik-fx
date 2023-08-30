@@ -31,11 +31,11 @@ impl DisplayController {
         self.backlight.set_duty(duty as _);
     }
 
-    pub fn on(&mut self) {
+    pub fn switch_on(&mut self) {
         self.canvas.on();
     }
 
-    pub fn off(&mut self) {
+    pub fn switch_off(&mut self) {
         self.canvas.off();
     }
 

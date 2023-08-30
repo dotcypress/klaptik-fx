@@ -13,13 +13,15 @@ extern crate panic_halt;
 
 mod app;
 mod display;
+mod power;
 mod store;
 mod wiring;
 
 use app::*;
 use display::*;
-use hal::{exti::*, gpio::SignalEdge, i2c, prelude::*, spi, stm32, timer::*};
+use hal::{analog::adc::*, exti::*, gpio::SignalEdge, i2c, prelude::*, spi, stm32, timer::*};
 use klaptik::*;
+use power::*;
 use shared_bus_rtic::SharedBus;
 use store::*;
 use wiring::*;
@@ -32,15 +34,15 @@ mod klaptik_fx_app {
     struct Shared {
         app: App,
         display: SpriteDisplay<DisplayController, { SPRITES.len() }>,
+        exti: stm32::EXTI,
         store: Store,
-        i2c: I2cDev,
+        power: PowerController,
     }
 
     #[local]
     struct Local {
-        exti: stm32::EXTI,
         ui: UI,
-        ui_timer: Timer<stm32::TIM17>,
+        render_timer: Timer<stm32::TIM17>,
     }
 
     #[init]
@@ -57,18 +59,26 @@ mod klaptik_fx_app {
 
         let gpio = pins.gpio;
         gpio.gpio0.listen(SignalEdge::All, &mut exti);
-        gpio.gpio2.listen(SignalEdge::All, &mut exti);
 
         let mut delay = ctx.device.TIM1.delay(&mut rcc);
 
-        let mut ui_timer = ctx.device.TIM17.timer(&mut rcc);
-        ui_timer.start(350.millis());
-        ui_timer.listen();
+        let mut render_timer = ctx.device.TIM17.timer(&mut rcc);
+        render_timer.start(350.millis());
+        render_timer.listen();
 
         let backlight_pwm = ctx.device.TIM14.pwm(100.kHz(), &mut rcc);
         let mut lcd_backlight = backlight_pwm.bind_pin(pins.lcd_backlight);
         lcd_backlight.enable();
         lcd_backlight.set_duty(0);
+
+        let mut adc = ctx.device.ADC.constrain(&mut rcc);
+        adc.set_sample_time(SampleTime::T_80);
+        adc.set_precision(Precision::B_12);
+        adc.set_oversampling_ratio(OversamplingRatio::X_16);
+        adc.set_oversampling_shift(16);
+        adc.oversampling_enable(true);
+        delay.delay(100.micros());
+        adc.calibrate();
 
         let i2c = ctx.device.I2C2.i2c(
             pins.i2c_sda,
@@ -76,6 +86,18 @@ mod klaptik_fx_app {
             i2c::Config::new(400.kHz()),
             &mut rcc,
         );
+        let i2c_bus = shared_bus_rtic::new!(i2c, I2cDev);
+        let charger = Charger::new(i2c_bus.acquire());
+        let mut power = PowerController::new(
+            adc,
+            pins.vcc_sense,
+            charger,
+            pins.power_en,
+            pins.power_fault.listen(SignalEdge::Falling, &mut exti),
+        );
+        power.power_on();
+        delay.delay(10.millis());
+        pins.power_int.listen(SignalEdge::Falling, &mut exti);
 
         let spi = ctx.device.SPI2.spi(
             (pins.spi_clk, pins.spi_miso, pins.spi_mosi),
@@ -84,9 +106,6 @@ mod klaptik_fx_app {
             &mut rcc,
         );
         let spi_bus = shared_bus_rtic::new!(spi, SpiDev);
-
-        let store = Store::new(spi_bus.acquire(), pins.eeprom_cs, pins.eeprom_wp);
-
         let display_ctrl = DisplayController::new(
             spi_bus.acquire(),
             pins.lcd_reset,
@@ -97,55 +116,65 @@ mod klaptik_fx_app {
         );
         let mut display = SpriteDisplay::new(display_ctrl, SPRITES);
 
+        let store = Store::new(spi_bus.acquire(), pins.eeprom_cs, pins.eeprom_wp);
+
+        let app = App::new();
         let mut ui = UI::new();
         ui.render(&mut display);
         display.canvas().set_backlight(8);
-        display.canvas().on();
+        display.canvas().switch_on();
 
         (
             Shared {
+                app,
+                power,
                 display,
                 store,
-                i2c,
-                app: App::new(),
+                exti,
             },
-            Local { ui_timer, exti, ui },
+            Local { render_timer, ui },
             init::Monotonics(),
         )
     }
 
-    #[task(binds = TIM17, local = [ui, ui_timer], shared = [app, display, i2c, store])]
-    fn ui_timer_tick(ctx: ui_timer_tick::Context) {
-        let ui_timer_tick::LocalResources { ui, ui_timer } = ctx.local;
-        let ui_timer_tick::SharedResources {
+    #[task(binds = EXTI0_1, shared = [exti])]
+    fn gpio_edge(ctx: gpio_edge::Context) {
+        let gpio_edge::SharedResources { mut exti } = ctx.shared;
+        if exti.lock(|exti| exti.is_pending(Event::GPIO0, SignalEdge::Falling)) {
+            defmt::info!("GPIO interrupt");
+            exti.lock(|exti| exti.unpend(Event::GPIO0));
+        }
+    }
+
+    #[task(binds = EXTI4_15, shared = [power, store, exti])]
+    fn power_int(ctx: power_int::Context) {
+        let power_int::SharedResources {
+            mut exti,
+            store: _,
+            power: _,
+        } = ctx.shared;
+
+        if exti.lock(|exti| exti.is_pending(Event::GPIO14, SignalEdge::Falling)) {
+            defmt::info!("Overcurrent");
+            exti.lock(|exti| exti.unpend(Event::GPIO14));
+        }
+
+        if exti.lock(|exti| exti.is_pending(Event::GPIO5, SignalEdge::Falling)) {
+            defmt::info!("Changer interrupt");
+            exti.lock(|exti| exti.unpend(Event::GPIO5));
+        }
+    }
+
+    #[task(binds = TIM17, local = [ui, render_timer], shared = [app, display])]
+    fn render(ctx: render::Context) {
+        let render::LocalResources { ui, render_timer } = ctx.local;
+        let render::SharedResources {
             mut app,
             mut display,
-            i2c: _,
-            store: _,
         } = ctx.shared;
-        app.lock(|app| {
-            app.animate();
-            ui.update(app.state());
-        });
-        display.lock(|display| {
-            ui.render(display);
-        });
-        ui_timer.clear_irq();
-    }
-
-    #[task(binds = EXTI0_1)]
-    fn gpio_a_edge(_: gpio_a_edge::Context) {
-        gpio_event::spawn(Event::GPIO0).ok();
-    }
-
-    #[task(binds = EXTI2_3)]
-    fn gpio_b1_edge(_: gpio_b1_edge::Context) {
-        gpio_event::spawn(Event::GPIO2).ok();
-    }
-
-    #[task(priority = 2, local = [exti])]
-    fn gpio_event(ctx: gpio_event::Context, ev: Event) {
-        ctx.local.exti.unpend(ev);
+        app.lock(|app| ui.update(app.state()));
+        display.lock(|display| ui.render(display));
+        render_timer.clear_irq();
     }
 
     #[idle]

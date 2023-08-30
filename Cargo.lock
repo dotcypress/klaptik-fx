@@ -316,6 +316,7 @@ dependencies = [
  "defmt-rtt",
  "klaptik",
  "kvs",
+ "mp2667",
  "panic-halt",
  "panic-probe",
  "shared-bus-rtic",
@@ -366,6 +367,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "mp2667"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fad6dbe36a048e8884ec86a0582d4ab52c79d0d039b0bb1e4154d0337b1867ae"
+dependencies = [
+ "embedded-hal",
+ "modular-bitfield",
 ]
 
 [[package]]

@@ -1,8 +1,19 @@
-mod assets;
-mod ui;
+use crate::power::PowerState;
 
-pub use ui::*;
+mod assets;
+mod widgets;
+
 pub use assets::*;
+pub use widgets::*;
+
+pub enum AppRequest {
+    PowerOff,
+}
+
+pub enum AppEvent {
+    AnimationFrame,
+    Power(PowerState),
+}
 
 pub struct AppState {
     pub frame: usize,
@@ -19,11 +30,17 @@ impl App {
         }
     }
 
-    pub fn state(&self) -> &AppState {
+    pub fn state(&mut self) -> &AppState {
         &self.state
     }
 
-    pub fn animate(&mut self) {
-        self.state.frame += 1;
+    pub fn handle_event(&mut self, ev: AppEvent) -> Option<AppRequest> {
+        match ev {
+            AppEvent::AnimationFrame => {
+                self.state.frame += 1;
+                None
+            }
+            AppEvent::Power(_) => None,
+        }
     }
 }
