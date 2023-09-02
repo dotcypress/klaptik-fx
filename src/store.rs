@@ -3,13 +3,13 @@ use kvs::adapters::paged::PagedAdapter;
 use kvs::adapters::spi::*;
 use kvs::*;
 
-pub const FLASH_MAX_ADDRESS: usize = 0x1ffff;
-pub const FLASH_ADDR_BYTES: usize = 3;
-pub const FLASH_PAGE_SIZE: usize = 256;
+pub const FLASH_MAX_ADDRESS: usize = 0xffff;
+pub const FLASH_ADDR_BYTES: usize = 2;
+pub const FLASH_PAGE_SIZE: usize = 128;
 
 pub const KVS_MAGIC: u32 = 0x4242;
 pub const KVS_NONCE: u16 = 0;
-pub const KVS_BUCKETS: usize = 512;
+pub const KVS_BUCKETS: usize = 128;
 pub const KVS_SLOTS: usize = 16;
 pub const KVS_MAX_HOPS: usize = 32;
 

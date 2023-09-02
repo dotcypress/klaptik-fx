@@ -116,13 +116,24 @@ mod klaptik_fx_app {
         );
         let mut display = SpriteDisplay::new(display_ctrl, SPRITES);
 
-        let store = Store::new(spi_bus.acquire(), pins.eeprom_cs, pins.eeprom_wp);
+        let mut store = Store::new(spi_bus.acquire(), pins.eeprom_cs, pins.eeprom_wp);
+        if store.store.exists(b"aaa").unwrap() {
+            defmt::info!("Store ok");
+        } else {
+            defmt::info!("Store empty");
+            store.store.insert(b"aaa", b"aaa").unwrap();
+            defmt::info!("Store updated");
+        }
 
         let app = App::new();
         let mut ui = UI::new();
         ui.render(&mut display);
-        display.canvas().set_backlight(8);
+        display.canvas().set_backlight(4);
         display.canvas().switch_on();
+
+        exti.wakeup(Event::GPIO5);
+
+        defmt::info!("Starting app");
 
         (
             Shared {
@@ -150,8 +161,8 @@ mod klaptik_fx_app {
     fn power_int(ctx: power_int::Context) {
         let power_int::SharedResources {
             mut exti,
+            mut power,
             store: _,
-            power: _,
         } = ctx.shared;
 
         if exti.lock(|exti| exti.is_pending(Event::GPIO14, SignalEdge::Falling)) {
@@ -161,6 +172,7 @@ mod klaptik_fx_app {
 
         if exti.lock(|exti| exti.is_pending(Event::GPIO5, SignalEdge::Falling)) {
             defmt::info!("Changer interrupt");
+            let _ = power.lock(|power| power.state());
             exti.lock(|exti| exti.unpend(Event::GPIO5));
         }
     }
